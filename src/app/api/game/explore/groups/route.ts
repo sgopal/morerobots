@@ -77,7 +77,11 @@ export async function GET(req: NextRequest) {
       )
       .eq("user_id", user.id)
       .eq("planet_id", planetId)
-      .neq("status", "completed")
+      .or(
+        `status.neq.completed,and(status.eq.completed,end_time.gte.${new Date(
+          Date.now() - 4 * 60 * 60 * 1000
+        ).toISOString()})`
+      )
       .order("start_time", { ascending: false });
 
     if (groupsError) throw groupsError;

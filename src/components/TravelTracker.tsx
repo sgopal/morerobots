@@ -49,7 +49,9 @@ export default function TravelTracker({
     }
 
     previousCountRef.current = currentCount;
-  }, [travelingGroups.length, onGroupUpdate]);
+
+    // TravelTracker is now read-only - update logic moved to GameClock
+  }, [travelingGroups.length, onGroupUpdate, accessToken, planetId]);
 
   const calculatePhaseAndETA = (group: RobotGroup) => {
     const now = gameTime;
@@ -110,6 +112,8 @@ export default function TravelTracker({
         return "text-yellow-400";
       case "returning":
         return "text-green-400";
+      case "completed":
+        return "text-gray-500";
       default:
         return "text-gray-400";
     }
@@ -170,10 +174,16 @@ export default function TravelTracker({
             const { currentPhase, etaLabel, timeRemaining } =
               calculatePhaseAndETA(group);
 
+            const isCompleted = currentPhase === "completed";
+
             return (
               <div
                 key={group.id}
-                className="bg-gray-700 rounded p-3 border border-gray-600"
+                className={`rounded p-3 border ${
+                  isCompleted
+                    ? "bg-gray-800 border-gray-700 opacity-60"
+                    : "bg-gray-700 border-gray-600"
+                }`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>

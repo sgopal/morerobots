@@ -154,78 +154,127 @@ async function discoverLocation(
   supabase: any,
   userId: string,
   planetId: string,
-  x: number,
-  y: number
+  centerX: number,
+  centerY: number
 ) {
-  // Check if location already exists
-  const { data: existing } = await supabase
-    .from("planet_locations")
-    .select("id")
-    .eq("planet_id", planetId)
-    .eq("x_coord", x)
-    .eq("y_coord", y)
-    .single();
+  console.log(`🔍 DISCOVERY: Exploring area around (${centerX}, ${centerY})`);
 
-  if (existing) return; // Location already discovered
+  // Reveal a 3x3 area around the exploration target
+  const locationsToCreate = [];
 
-  // Generate random discovery
-  const discoveries = [
-    {
-      hasResource: true,
-      resourceName: "Iron",
-      resourceDesc: "Common metal ore",
-    },
-    {
-      hasResource: true,
-      resourceName: "Copper",
-      resourceDesc: "Useful for electronics",
-    },
-    {
-      hasResource: true,
-      resourceName: "Silicon",
-      resourceDesc: "Essential for computers",
-    },
-    { hasAliens: true, alienCount: Math.floor(Math.random() * 5) + 1 },
-    { isEmpty: true }, // Empty location
-  ];
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const x = centerX + dx;
+      const y = centerY + dy;
 
-  const discovery = discoveries[Math.floor(Math.random() * discoveries.length)];
-
-  let resourceId = null;
-
-  // Create resource if needed
-  if (discovery.hasResource) {
-    // Try to find existing resource
-    const { data: resource } = await supabase
-      .from("resources")
-      .select("id")
-      .eq("name", discovery.resourceName)
-      .single();
-
-    if (resource) {
-      resourceId = resource.id;
-    } else {
-      // Create new resource
-      const { data: newResource } = await supabase
-        .from("resources")
-        .insert({
-          name: discovery.resourceName,
-          description: discovery.resourceDesc,
-        })
+      // Check if location already exists
+      const { data: existing } = await supabase
+        .from("planet_locations")
         .select("id")
+        .eq("planet_id", planetId)
+        .eq("x_coord", x)
+        .eq("y_coord", y)
         .single();
-      resourceId = newResource?.id;
+
+      if (existing) {
+        console.log(`🔍 DISCOVERY: Location (${x}, ${y}) already exists`);
+        continue; // Location already discovered
+      }
+
+      // Generate discovery for this location
+      let discovery;
+      if (x === centerX && y === centerY) {
+        // Main target location - higher chance of finding something interesting
+        const discoveries = [
+          {
+            hasResource: true,
+            resourceName: "Iron",
+            resourceDesc: "Common metal ore",
+          },
+          {
+            hasResource: true,
+            resourceName: "Copper",
+            resourceDesc: "Useful for electronics",
+          },
+          {
+            hasResource: true,
+            resourceName: "Silicon",
+            resourceDesc: "Essential for computers",
+          },
+          { hasAliens: true, alienCount: Math.floor(Math.random() * 5) + 1 },
+          { isEmpty: true }, // Only 20% chance of empty
+        ];
+        discovery = discoveries[Math.floor(Math.random() * discoveries.length)];
+      } else {
+        // Surrounding locations - mostly empty with occasional finds
+        const discoveries = [
+          {
+            hasResource: true,
+            resourceName: "Iron",
+            resourceDesc: "Common metal ore",
+          },
+          { hasAliens: true, alienCount: Math.floor(Math.random() * 3) + 1 },
+          { isEmpty: true },
+          { isEmpty: true },
+          { isEmpty: true },
+          { isEmpty: true }, // 67% chance of empty for surrounding areas
+        ];
+        discovery = discoveries[Math.floor(Math.random() * discoveries.length)];
+      }
+
+      let resourceId = null;
+
+      // Create resource if needed
+      if (discovery.hasResource) {
+        const { data: resource } = await supabase
+          .from("resources")
+          .select("id")
+          .eq("name", discovery.resourceName)
+          .single();
+
+        if (resource) {
+          resourceId = resource.id;
+        } else {
+          const { data: newResource } = await supabase
+            .from("resources")
+            .insert({
+              name: discovery.resourceName,
+              description: discovery.resourceDesc,
+            })
+            .select("id")
+            .single();
+          resourceId = newResource?.id;
+        }
+      }
+
+      // Prepare location for batch insert
+      locationsToCreate.push({
+        planet_id: planetId,
+        x_coord: x,
+        y_coord: y,
+        has_resource_mine: !!discovery.hasResource,
+        resource_id: resourceId,
+        has_aliens: !!discovery.hasAliens,
+        alien_quantity: discovery.alienCount || 0,
+      });
+
+      console.log(
+        `🔍 DISCOVERY: (${x}, ${y}) - ${
+          discovery.hasResource
+            ? `Found ${discovery.resourceName}!`
+            : discovery.hasAliens
+            ? `Found ${discovery.alienCount} aliens!`
+            : "Empty space"
+        }`
+      );
     }
   }
 
-  // Create the discovered location
-  await supabase.from("planet_locations").insert({
-    planet_id: planetId,
-    x_coord: x,
-    y_coord: y,
-    has_resource_mine: !!discovery.hasResource,
-    resource_id: resourceId,
-    has_aliens: !!discovery.hasAliens,
-    alien_quantity: discovery.alienCount || 0,
-  });
+  // Batch insert all discovered locations
+  if (locationsToCreate.length > 0) {
+    await supabase.from("planet_locations").insert(locationsToCreate);
+    console.log(
+      `🔍 DISCOVERY: Created ${locationsToCreate.length} new locations`
+    );
+  }
 }

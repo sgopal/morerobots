@@ -89,18 +89,11 @@ export default function Home() {
   }, []);
 
   const handleLocationClick = useCallback(
-    async (x: number, y: number) => {
-      if (!selectedPlanetId || !accessToken) return;
-
-      // For now, let's just trigger an explore action
-      // You can expand this to check if there's a robot available, etc.
-      console.log(
-        `Clicked location: (${x}, ${y}) on planet ${selectedPlanetId}`
-      );
-
-      // Location click is now handled by PlanetMap component's robot selection modal
+    (x: number, y: number) => {
+      // This is now handled entirely by PlanetMap component
+      console.log(`Clicked location: (${x}, ${y})`);
     },
-    [selectedPlanetId, accessToken]
+    [] // No dependencies needed - just a simple logger
   );
 
   const handleTimeUpdate = useCallback((time: Date) => {
@@ -280,7 +273,11 @@ export default function Home() {
                       )}
                     </div>
                     <div className="space-y-4">
-                      <GameClock onTimeUpdate={handleTimeUpdate} />
+                      <GameClock
+                        onTimeUpdate={handleTimeUpdate}
+                        planetId={selectedPlanetId}
+                        accessToken={accessToken}
+                      />
                       {accessToken && (
                         <RobotPanel
                           planetId={selectedPlanetId!}

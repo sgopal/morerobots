@@ -4,9 +4,15 @@ import { useState, useEffect } from "react";
 
 interface GameClockProps {
   onTimeUpdate?: (time: Date) => void;
+  planetId?: string;
+  accessToken?: string;
 }
 
-export default function GameClock({ onTimeUpdate }: GameClockProps) {
+export default function GameClock({
+  onTimeUpdate,
+  planetId,
+  accessToken,
+}: GameClockProps) {
   const [gameTime, setGameTime] = useState<Date>(new Date());
   const [isRunning, setIsRunning] = useState(true);
 
@@ -21,6 +27,35 @@ export default function GameClock({ onTimeUpdate }: GameClockProps) {
 
     return () => clearInterval(interval);
   }, [isRunning, onTimeUpdate]);
+
+  // Separate timer for exploration updates (every 30 seconds)
+  useEffect(() => {
+    if (!isRunning || !planetId || !accessToken) return;
+
+    const updateInterval = setInterval(() => {
+      console.log(
+        "🕒 GameClock: Running exploration update for planet:",
+        planetId
+      );
+      fetch("/api/game/explore/update", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ planetId }),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          console.log("🕒 GameClock: Update response:", data);
+        })
+        .catch((error) => {
+          console.error("🕒 GameClock: Update failed:", error);
+        });
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(updateInterval);
+  }, [isRunning, planetId, accessToken]);
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString("en-US", {

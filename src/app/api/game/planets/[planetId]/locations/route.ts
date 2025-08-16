@@ -57,6 +57,13 @@ export async function GET(
 
   try {
     console.log("🗺️ LOCATIONS API: Querying locations for planet:", planetId);
+
+    // Debug: Check total planet_locations count
+    const { count } = await supabase
+      .from("planet_locations")
+      .select("*", { count: "exact", head: true });
+    console.log("🗺️ LOCATIONS API: Total planet_locations in DB:", count);
+
     // Get all locations on this planet (no permission check - auth is enough)
     const { data: locations, error } = await supabase
       .from("planet_locations")
