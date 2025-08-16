@@ -66,6 +66,15 @@ export async function POST(req: NextRequest) {
 
     if (groupsError) throw groupsError;
 
+    console.log(
+      `🔍 UPDATE: Found ${groups?.length || 0} active groups:`,
+      groups?.map((g) => ({
+        id: g.id.slice(0, 8),
+        status: g.status,
+        target: `(${g.target_x},${g.target_y})`,
+      }))
+    );
+
     const updates = [];
 
     for (const group of groups || []) {
@@ -93,12 +102,19 @@ export async function POST(req: NextRequest) {
 
         // Create discovered location if this is the first time reaching exploring phase
         if (group.status === "traveling") {
+          console.log(
+            `🔍 UPDATE: Group ${group.id} transitioning traveling → exploring, calling discovery for (${group.target_x}, ${group.target_y})`
+          );
           await discoverLocation(
             supabase,
             user.id,
             group.planet_id,
             group.target_x,
             group.target_y
+          );
+        } else {
+          console.log(
+            `🔍 UPDATE: Group ${group.id} status: ${group.status} → exploring (no discovery needed)`
           );
         }
       }
@@ -255,7 +271,6 @@ async function discoverLocation(
         has_resource_mine: !!discovery.hasResource,
         resource_id: resourceId,
         has_aliens: !!discovery.hasAliens,
-        alien_quantity: discovery.alienCount || 0,
       });
 
       console.log(
@@ -272,9 +287,21 @@ async function discoverLocation(
 
   // Batch insert all discovered locations
   if (locationsToCreate.length > 0) {
-    await supabase.from("planet_locations").insert(locationsToCreate);
     console.log(
-      `🔍 DISCOVERY: Created ${locationsToCreate.length} new locations`
+      `🔍 DISCOVERY: Attempting to insert ${locationsToCreate.length} locations:`,
+      locationsToCreate
+    );
+    const { data: insertResult, error: insertError } = await supabase
+      .from("planet_locations")
+      .insert(locationsToCreate);
+
+    if (insertError) {
+      console.error("🔍 DISCOVERY: Insert failed:", insertError);
+      throw insertError;
+    }
+
+    console.log(
+      `🔍 DISCOVERY: Successfully created ${locationsToCreate.length} new locations`
     );
   }
 }

@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const arrivalTime = new Date(
       startTime.getTime() + travelTimeSeconds * 1000
     );
-    const explorationTimeSeconds = 30; // 30 seconds to explore/work
+    const explorationTimeSeconds = 5; // 5 seconds to explore/work
     const returnTravelTime = travelTimeSeconds; // Same time to return
     const totalTimeSeconds =
       travelTimeSeconds + explorationTimeSeconds + returnTravelTime;

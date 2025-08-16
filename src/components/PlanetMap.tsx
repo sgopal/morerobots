@@ -73,17 +73,15 @@ export default function PlanetMap({
     // Process locations first
     locations?.forEach((location: any) => {
       console.log("🔍 Individual Location:", location);
-      const key = `${location.x_coord || location.x},${
-        location.y_coord || location.y
-      }`;
+      const key = `${location.x_coord},${location.y_coord}`;
       cellMap.set(key, {
-        x: location.x_coord || location.x,
-        y: location.y_coord || location.y,
+        x: location.x_coord,
+        y: location.y_coord,
         isExplored: true,
-        hasResource: location.has_resource_mine || location.hasResource,
+        hasResource: location.has_resource_mine,
         resourceType: location.resources?.name,
-        hasAliens: location.has_aliens || location.hasAliens,
-        alienCount: location.alien_quantity || location.alienCount || 0,
+        hasAliens: location.has_aliens,
+        alienCount: 0, // Schema doesn't store alien count, only has_aliens boolean
         hasBuilding: false,
       });
     });

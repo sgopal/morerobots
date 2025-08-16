@@ -58,11 +58,11 @@ export default function TravelTracker({
     const startTime = new Date(group.start_time);
     const endTime = new Date(group.end_time);
 
-    // Calculate travel phases (assuming equal travel time each way + 30s exploration)
+    // Calculate travel phases (assuming equal travel time each way + 5s exploration)
     const totalDuration = endTime.getTime() - startTime.getTime();
-    const travelTime = Math.floor((totalDuration - 30000) / 2); // (total - 30s exploration) / 2
+    const travelTime = Math.floor((totalDuration - 5000) / 2); // (total - 5s exploration) / 2
     const arrivalTime = new Date(startTime.getTime() + travelTime);
-    const explorationEndTime = new Date(arrivalTime.getTime() + 30000);
+    const explorationEndTime = new Date(arrivalTime.getTime() + 5000);
 
     let currentPhase = "traveling";
     let etaTime = arrivalTime;
