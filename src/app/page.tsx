@@ -8,6 +8,11 @@ import PlanetMap from "../components/PlanetMap";
 import GameClock from "../components/GameClock";
 import TravelTracker from "../components/TravelTracker";
 import RobotPanel from "../components/RobotPanel";
+import {
+  usePlanets,
+  usePlanetBuildings,
+  useInitializeGame,
+} from "../hooks/useGameQueries";
 
 interface Planet {
   id: string;
@@ -34,11 +39,7 @@ interface UserBuilding {
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasLanded, setHasLanded] = useState(false);
-  const [userPlanets, setUserPlanets] = useState<UserPlanet[]>([]);
   const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
-  const [planetBuildings, setPlanetBuildings] = useState<UserBuilding[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [gameTime, setGameTime] = useState<Date>(new Date());
   const router = useRouter();
@@ -46,103 +47,45 @@ export default function Home() {
   // State to hold the Supabase access token
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  const fetchUserPlanets = useCallback(
-    async (userId: string, token: string) => {
-      try {
-        const response = await fetch("/api/game/planets", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = await response.json();
+  // React Query hooks
+  const {
+    data: userPlanets = [],
+    isLoading: planetsLoading,
+    error: planetsError,
+  } = usePlanets(accessToken);
 
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to fetch user planets");
-        }
+  const { data: planetBuildings = [], isLoading: buildingsLoading } =
+    usePlanetBuildings(selectedPlanetId, accessToken);
 
-        if (data && data.length > 0) {
-          setHasLanded(true);
-          setUserPlanets(data);
-        } else {
-          setHasLanded(false);
-        }
-      } catch (err: any) {
-        console.error("Error fetching user planets:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [] // Remove state setters from dependencies - they're stable
-  );
+  const initializeGameMutation = useInitializeGame(accessToken);
+
+  // Derived state
+  const hasLanded = userPlanets.length > 0;
+
+  // Old fetchUserPlanets removed - now using usePlanets hook
 
   const handleInitializeGame = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/game/init", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to initialize game");
-      }
-
-      // After initialization, re-fetch user planets
-      if (user && accessToken) {
-        await fetchUserPlanets(user.id, accessToken);
-      }
-      alert(
-        "Game initialized successfully! You now have a home planet with resources and a robot."
-      );
-    } catch (err: any) {
-      console.error("Error initializing game:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, accessToken, fetchUserPlanets, setError, setLoading]);
-
-  const handleSelectPlanet = useCallback(
-    async (planetId: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(
-          `/api/game/planets/${planetId}/buildings`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
+    initializeGameMutation.mutate(undefined, {
+      onSuccess: () => {
+        alert(
+          "Game initialized successfully! You now have a home planet with resources and a robot."
         );
-        const data = await response.json();
+      },
+      onError: (error: Error) => {
+        console.error("Error initializing game:", error);
+        alert(`Failed to initialize game: ${error.message}`);
+      },
+    });
+  }, [initializeGameMutation]);
 
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to fetch planet buildings");
-        }
-        setSelectedPlanetId(planetId);
-        setPlanetBuildings(data);
-        setShowMap(false); // Hide map when viewing buildings
-      } catch (err: any) {
-        console.error("Error fetching planet buildings:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [accessToken, setSelectedPlanetId, setPlanetBuildings, setError, setLoading]
-  ); // Add dependencies
+  const handleSelectPlanet = useCallback((planetId: string) => {
+    setSelectedPlanetId(planetId);
+    setShowMap(false); // Hide map when viewing buildings
+  }, []);
 
   const handleShowMap = useCallback((planetId: string) => {
     setSelectedPlanetId(planetId);
     setShowMap(true);
-    setPlanetBuildings([]);
   }, []);
 
   const handleLocationClick = useCallback(
@@ -176,10 +119,7 @@ export default function Home() {
         if (session) {
           setUser(session.user);
           setAccessToken(session.access_token); // Set the access token
-          if (session.user && session.access_token) {
-            // Ensure access_token exists here
-            await fetchUserPlanets(session.user.id, session.access_token); // Pass token here
-          }
+          // React Query will automatically fetch when accessToken changes
         } else if (event === "SIGNED_OUT") {
           // Only redirect on explicit sign out, not on session errors
           setUser(null);
@@ -196,7 +136,7 @@ export default function Home() {
         // Ensure access_token exists here
         setUser(session.user);
         setAccessToken(session.access_token); // Set the access token on initial load
-        await fetchUserPlanets(session.user.id, session.access_token); // Pass token here
+        // React Query will automatically fetch when accessToken changes
       } else {
         // Only redirect if we're not already authenticated
         if (!user) {
@@ -209,7 +149,7 @@ export default function Home() {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [router, fetchUserPlanets]); // Remove user from dependencies to prevent loop
+  }, [router]); // React Query handles planet fetching automatically
 
   const handleLogout = async () => {
     setLoading(true);
@@ -224,7 +164,7 @@ export default function Home() {
     }
   };
 
-  if (loading) {
+  if (loading || planetsLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         Loading...
@@ -251,7 +191,9 @@ export default function Home() {
             {loading ? "Logging out..." : "Logout"}
           </button>
 
-          {error && <p className="text-red-500 mb-4">Error: {error}</p>}
+          {planetsError && (
+            <p className="text-red-500 mb-4">Error: {planetsError.message}</p>
+          )}
 
           {!hasLanded ? (
             <div className="mt-8">

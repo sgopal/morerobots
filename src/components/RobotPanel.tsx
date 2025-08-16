@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePlanetRobots } from "../hooks/useGameQueries";
 
 interface Robot {
   id: string;
@@ -21,35 +22,13 @@ interface RobotPanelProps {
 }
 
 export default function RobotPanel({ planetId, accessToken }: RobotPanelProps) {
-  const [robots, setRobots] = useState<Robot[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchRobots = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(`/api/game/planets/${planetId}/robots`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (response.ok) {
-        const robotsData = await response.json();
-        setRobots(robotsData);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Failed to fetch robots");
-      }
-    } catch (err: any) {
-      setError("Error fetching robots: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [planetId, accessToken]);
-
-  useEffect(() => {
-    fetchRobots();
-  }, [fetchRobots]);
+  // Use React Query for robots
+  const {
+    data: robots = [],
+    isLoading: loading,
+    error,
+    refetch: fetchRobots,
+  } = usePlanetRobots(planetId, accessToken);
 
   return (
     <div className="bg-gray-800 rounded-lg p-4">
@@ -68,7 +47,7 @@ export default function RobotPanel({ planetId, accessToken }: RobotPanelProps) {
 
       {error && (
         <div className="bg-red-600 text-white text-sm p-2 rounded mb-3">
-          {error}
+          {error.message}
         </div>
       )}
 

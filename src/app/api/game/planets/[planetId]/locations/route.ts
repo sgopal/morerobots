@@ -7,7 +7,6 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ planetId: string }> }
 ) {
-  console.log("🗺️ LOCATIONS API: Starting request");
   // Get the authorization header
   const authHeader = req.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {

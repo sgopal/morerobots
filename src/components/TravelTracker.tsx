@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTravelGroups } from "../hooks/useGameQueries";
 
 interface RobotGroup {
   id: string;
@@ -29,75 +30,26 @@ export default function TravelTracker({
   gameTime,
   onGroupUpdate,
 }: TravelTrackerProps) {
-  const [travelingGroups, setTravelingGroups] = useState<RobotGroup[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const previousCountRef = useRef(0);
 
-  const fetchTravelingGroups = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // Use React Query for travel groups
+  const {
+    data: travelingGroups = [],
+    isLoading: loading,
+    error,
+  } = useTravelGroups(planetId, accessToken);
 
-      // Temporarily disable auto-update to debug the issue
-      // TODO: Re-enable once we fix the update endpoint
-      /*
-      try {
-        const updateResponse = await fetch("/api/game/explore/update", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        
-        if (!updateResponse.ok) {
-          const errorData = await updateResponse.json();
-          console.error("Update API error:", errorData);
-        }
-      } catch (updateErr) {
-        console.error("Update API failed:", updateErr);
-      }
-      */
-
-      // Then fetch current groups
-      const response = await fetch(
-        `/api/game/explore/groups?planetId=${planetId}`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        }
-      );
-
-      if (response.ok) {
-        const groups = await response.json();
-        const previousCount = previousCountRef.current;
-        setTravelingGroups(groups);
-        previousCountRef.current = groups.length;
-
-        // If group count changed (likely completion), refresh map
-        if (previousCount !== groups.length && onGroupUpdate) {
-          onGroupUpdate();
-        }
-      } else {
-        const errorData = await response.json();
-        setError(
-          `Failed to fetch traveling groups: ${
-            errorData.error || "Unknown error"
-          }`
-        );
-        console.error("Groups API error:", errorData);
-      }
-    } catch (err: any) {
-      setError(`Error fetching traveling groups: ${err.message}`);
-      console.error("Travel tracker error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [planetId, accessToken, onGroupUpdate]);
-
+  // Track group count changes for map updates
   useEffect(() => {
-    fetchTravelingGroups();
-    // Refresh every 30 seconds - much more reasonable
-    const interval = setInterval(fetchTravelingGroups, 30000);
-    return () => clearInterval(interval);
-  }, [fetchTravelingGroups]);
+    const currentCount = travelingGroups.length;
+    const previousCount = previousCountRef.current;
+
+    if (previousCount !== currentCount && onGroupUpdate && previousCount > 0) {
+      onGroupUpdate();
+    }
+
+    previousCountRef.current = currentCount;
+  }, [travelingGroups.length, onGroupUpdate]);
 
   const calculatePhaseAndETA = (group: RobotGroup) => {
     const now = gameTime;
@@ -196,7 +148,7 @@ export default function TravelTracker({
           Travel Tracker ({travelingGroups.length})
         </h3>
         <button
-          onClick={fetchTravelingGroups}
+          onClick={() => window.location.reload()}
           className="text-sm px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
           disabled={loading}
         >
@@ -206,7 +158,7 @@ export default function TravelTracker({
 
       {error && (
         <div className="bg-red-600 text-white text-sm p-2 rounded mb-3">
-          {error}
+          {error.message}
         </div>
       )}
 
