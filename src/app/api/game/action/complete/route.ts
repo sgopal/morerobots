@@ -320,7 +320,7 @@ export async function POST(req: NextRequest) {
             current_planet_id: planetId,
             current_x: 0, // Robots start at (0,0) of the planet they are built on
             current_y: 0,
-            name: "New Explorer Bot", // Default name for newly built robots
+            robot_type_id: activeAction.target_id, // Use the robot_type_id from the action
           });
 
         if (robotInsertError) throw robotInsertError;

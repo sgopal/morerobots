@@ -7,6 +7,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ planetId: string }> }
 ) {
+  console.log("🗺️ LOCATIONS API: Starting request");
   // Get the authorization header
   const authHeader = req.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -18,6 +19,7 @@ export async function GET(
 
   const token = authHeader.substring(7); // Remove 'Bearer ' prefix
   const { planetId } = await params;
+  console.log("🗺️ LOCATIONS API: Got planetId:", planetId);
 
   // Create Supabase client with the provided token
   const supabase = createClient(
@@ -38,11 +40,14 @@ export async function GET(
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
+    console.log("🗺️ LOCATIONS API: Auth failed:", userError);
     return NextResponse.json(
       { error: "Unauthorized - Invalid token" },
       { status: 401 }
     );
   }
+
+  console.log("🗺️ LOCATIONS API: Auth success, user:", user.id);
 
   if (!planetId) {
     return NextResponse.json(
@@ -52,17 +57,26 @@ export async function GET(
   }
 
   try {
-    const { data: buildings, error } = await supabase
-      .from("user_buildings")
-      .select("*, building_types(*)") // Select all from user_buildings and join building_types details
-      .eq("user_id", user.id)
+    console.log("🗺️ LOCATIONS API: Querying locations for planet:", planetId);
+    // Get all locations on this planet (no permission check - auth is enough)
+    const { data: locations, error } = await supabase
+      .from("planet_locations")
+      .select("*, resources(*)")
       .eq("planet_id", planetId);
 
-    if (error) throw error;
+    if (error) {
+      console.log("🗺️ LOCATIONS API: Query error:", error);
+      throw error;
+    }
 
-    return NextResponse.json(buildings, { status: 200 });
+    console.log(
+      "🗺️ LOCATIONS API: Success, found",
+      locations?.length || 0,
+      "locations"
+    );
+    return NextResponse.json(locations || [], { status: 200 });
   } catch (error: any) {
-    console.error(`Error fetching buildings for planet ${planetId}:`, error);
+    console.error("🗺️ LOCATIONS API: FAILED:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

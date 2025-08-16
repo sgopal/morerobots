@@ -147,7 +147,6 @@ export async function POST(req: NextRequest) {
       current_planet_id: planetId,
       current_x: startingX,
       current_y: startingY,
-      name: "Explorer Bot 1",
       robot_type_id: robotTypeId,
     });
 
