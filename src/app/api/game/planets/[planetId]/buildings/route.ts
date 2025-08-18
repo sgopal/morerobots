@@ -17,7 +17,7 @@ export async function GET(
   }
 
   const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-  const { planetId } = params;
+  const { planetId } = await params
 
   // Create Supabase client with the provided token
   const supabase = createClient(
