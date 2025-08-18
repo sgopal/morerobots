@@ -52,62 +52,39 @@ export async function GET(
   }
 
   try {
-    // Get all user's robots on this planet that are NOT currently in active groups
-    const { data: robotsData, error } = await supabase
+    // ALWAYS use the simple approach since the complex join logic is broken
+    // Get all robots first, then filter out active ones manually
+    const { data: allRobots, error: simpleError } = await supabase
       .from("user_robots")
-      .select(
-        `
-        id, 
-        current_x, 
-        current_y, 
-        robot_type_id, 
-        robot_types(*),
-        robot_group_members!inner(
-          group_id,
-          robot_groups!inner(status)
-        )
-      `
-      )
+      .select("id, current_x, current_y, robot_type_id, robot_types(*)")
       .eq("user_id", user.id)
-      .eq("current_planet_id", planetId)
-      .not(
-        "robot_group_members.robot_groups.status",
-        "in",
-        "(traveling,exploring,returning)"
-      );
+      .eq("current_planet_id", planetId);
 
-    let robots = robotsData;
-    console.log("🤖 ROBOTS API: Initial query result:", { robotsData, error });
+    console.log("🤖 ROBOTS API: Simple query result:", {
+      allRobots,
+      simpleError,
+    });
 
-    if (error) {
-      // If the join fails (no robot_group_members), get all robots (they're all available)
-      const { data: allRobots, error: simpleError } = await supabase
-        .from("user_robots")
-        .select("id, current_x, current_y, robot_type_id, robot_types(*)")
-        .eq("user_id", user.id)
-        .eq("current_planet_id", planetId);
+    if (simpleError) throw simpleError;
 
-      if (simpleError) throw simpleError;
+    // Filter out robots that are in active groups manually
+    const { data: activeGroups } = await supabase
+      .from("robot_group_members")
+      .select("robot_id, robot_groups!inner(status)")
+      .in("robot_groups.status", ["traveling", "exploring", "returning"]);
 
-      // Filter out robots that are in active groups manually
-      const { data: activeGroups } = await supabase
-        .from("robot_group_members")
-        .select("robot_id, robot_groups!inner(status)")
-        .eq("robot_groups.status", "traveling")
-        .or(
-          "robot_groups.status.eq.exploring,robot_groups.status.eq.returning"
-        );
+    const activeRobotIds = activeGroups?.map((g) => g.robot_id) || [];
+    const robots =
+      allRobots?.filter((robot) => !activeRobotIds.includes(robot.id)) || [];
 
-      const activeRobotIds = activeGroups?.map((g) => g.robot_id) || [];
-      robots =
-        allRobots?.filter((robot) => !activeRobotIds.includes(robot.id)) || [];
-      console.log("🤖 ROBOTS API: Fallback filtering:", {
-        allRobots: allRobots?.length,
-        activeGroups: activeGroups?.length,
-        activeRobotIds,
-        filteredRobots: robots?.length,
-      });
-    }
+    console.log("🤖 ROBOTS API: Filtering results:", {
+      allRobots: allRobots?.length,
+      activeGroups: activeGroups?.length,
+      activeRobotIds,
+      availableRobots: robots?.length,
+    });
+
+    console.log("🤖 ROBOTS API: User ID:", user.id, "Planet ID:", planetId);
 
     // Transform to expected format
     const robotsResponse = robots?.map((robot, index) => ({

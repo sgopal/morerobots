@@ -43,7 +43,10 @@ export async function POST(req: NextRequest) {
   try {
     // Check if the user already has a starting planet/setup
     const { data: existingPlanets, error: existingPlanetsError } =
-      await supabase.from("user_planets").select("id").eq("user_id", user.id);
+      await supabase
+        .from("user_planets")
+        .select("planet_id")
+        .eq("user_id", user.id);
 
     if (existingPlanetsError) throw existingPlanetsError;
     if (existingPlanets && existingPlanets.length > 0) {
