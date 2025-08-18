@@ -81,7 +81,7 @@ export default function PlanetMap({
         hasResource: location.has_resource_mine,
         resourceType: location.resources?.name,
         hasAliens: location.has_aliens,
-        alienCount: 0, // Schema doesn't store alien count, only has_aliens boolean
+        alienCount: location.has_aliens ? 1 : 0, // Set to 1 if aliens present
         hasBuilding: false,
       });
     });

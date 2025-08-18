@@ -239,6 +239,7 @@ async function discoverLocation(
       }
 
       let resourceId = null;
+      let alienTypeId = null;
 
       // Create resource if needed
       if (discovery.hasResource) {
@@ -263,6 +264,18 @@ async function discoverLocation(
         }
       }
 
+      // Get random alien type if needed
+      if (discovery.hasAliens) {
+        const { data: alienTypes } = await supabase
+          .from("alien_types")
+          .select("id");
+        
+        if (alienTypes && alienTypes.length > 0) {
+          const randomAlienType = alienTypes[Math.floor(Math.random() * alienTypes.length)];
+          alienTypeId = randomAlienType.id;
+        }
+      }
+
       // Prepare location for batch insert
       locationsToCreate.push({
         planet_id: planetId,
@@ -271,6 +284,7 @@ async function discoverLocation(
         has_resource_mine: !!discovery.hasResource,
         resource_id: resourceId,
         has_aliens: !!discovery.hasAliens,
+        alien_type_id: alienTypeId,
       });
 
       console.log(
